@@ -1040,42 +1040,31 @@ function renderDetail(detailTr, res, seqId) {{
           wrap.appendChild(hwpDiv);
           return;
         }}
-        // PDF: 로컬 서버가 있으면 프록시, 없으면 iframe 직접 로드 시도
+        // PDF 미리보기: 로컬은 자체 프록시, 외부는 Cloudflare Worker 프록시
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        if (isLocal) {{
-          fetch(dlUrl(f))
-            .then(r => {{ if (!r.ok) throw new Error(r.status); return r.blob(); }})
-            .then(blob => {{
-              const url = URL.createObjectURL(blob);
-              wrap.innerHTML = '<iframe src="' + url + '#toolbar=1" style="width:100%;height:100%;border:none;border-radius:6px;"></iframe>';
-            }})
-            .catch(err => {{
-              wrap.innerHTML = '<div style="padding:16px;color:#e53e3e;font-size:0.82rem;">미리보기 실패: ' + err + '</div>';
-            }});
-        }} else {{
-          // Render 환경: 서버 프록시로 PDF 가져와서 blob URL로 표시
-          fetch(dlUrl(f))
-            .then(r => {{ if (!r.ok) throw new Error(r.status); return r.blob(); }})
-            .then(blob => {{
-              const url = URL.createObjectURL(blob);
-              wrap.innerHTML = '<iframe src="' + url + '#toolbar=1" style="width:100%;height:100%;border:none;border-radius:6px;"></iframe>';
-            }})
-            .catch(function() {{
-              // 프록시 실패 시 다운로드 버튼 표시
-              wrap.style.height = 'auto';
-              const pdfBtn = document.createElement('button');
-              pdfBtn.textContent = '⬇ PDF 다운로드';
-              pdfBtn.style.cssText = 'margin-top:8px;padding:6px 14px;background:#2d6a9f;color:#fff;border:none;border-radius:6px;cursor:pointer;';
-              pdfBtn.addEventListener('click', function(){{ directDownload(f.server_name, f.name); }});
-              const pdfDiv = document.createElement('div');
-              pdfDiv.style.cssText = 'padding:16px;color:#555;font-size:0.85rem;';
-              pdfDiv.textContent = 'PDF 미리보기 불가 - 다운로드 후 확인하세요.';
-              pdfDiv.appendChild(document.createElement('br'));
-              pdfDiv.appendChild(pdfBtn);
-              wrap.innerHTML = '';
-              wrap.appendChild(pdfDiv);
-            }});
-        }}
+        const proxyUrl = isLocal
+          ? dlUrl(f)
+          : 'https://scourt-proxy.snow36524.workers.dev/?file=' + encodeURIComponent(f.server_name) + '&name=' + encodeURIComponent(f.name);
+        fetch(proxyUrl)
+          .then(r => {{ if (!r.ok) throw new Error(r.status); return r.blob(); }})
+          .then(blob => {{
+            const url = URL.createObjectURL(blob);
+            wrap.innerHTML = '<iframe src="' + url + '#toolbar=1" style="width:100%;height:100%;border:none;border-radius:6px;"></iframe>';
+          }})
+          .catch(function(err) {{
+            wrap.style.height = 'auto';
+            const pdfBtn = document.createElement('button');
+            pdfBtn.textContent = '⬇ PDF 다운로드';
+            pdfBtn.style.cssText = 'margin-top:8px;padding:6px 14px;background:#2d6a9f;color:#fff;border:none;border-radius:6px;cursor:pointer;';
+            pdfBtn.addEventListener('click', function(){{ directDownload(f.server_name, f.name); }});
+            const pdfDiv = document.createElement('div');
+            pdfDiv.style.cssText = 'padding:16px;color:#555;font-size:0.85rem;';
+            pdfDiv.textContent = 'PDF 미리보기 불가 - 다운로드 후 확인하세요.';
+            pdfDiv.appendChild(document.createElement('br'));
+            pdfDiv.appendChild(pdfBtn);
+            wrap.innerHTML = '';
+            wrap.appendChild(pdfDiv);
+          }});
       }});
     }}, 50);
   }} else {{
