@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: scourt-viewer
+    env: python
+    buildCommand: pip install -r requirements.txt && playwright install --with-deps chromium && apt-get install -y libreoffice
+    startCommand: python scourt_server.py
+    envVars:
+      - key: PORT
+        generateValue: false

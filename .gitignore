@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+browser_sessions/
+generated/
+ad_collection.db
+generation.db
+test_download.py
+regen.py
+generate_viewer.py
