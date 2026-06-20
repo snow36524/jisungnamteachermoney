@@ -959,6 +959,21 @@ function convertUrl(f) {{
   return API + '/convert?file=' + encodeURIComponent(f.server_name) + '&name=' + encodeURIComponent(f.name);
 }}
 
+function directDownload(serverName, displayName) {{
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = 'https://file.scourt.go.kr/AttachDownload';
+  form.target = '_blank';
+  form.style.display = 'none';
+  const f1 = document.createElement('input'); f1.name='file'; f1.value=serverName;
+  const f2 = document.createElement('input'); f2.name='path'; f2.value='011';
+  const f3 = document.createElement('input'); f3.name='downFile'; f3.value=displayName;
+  form.append(f1, f2, f3);
+  document.body.appendChild(form);
+  form.submit();
+  setTimeout(()=>form.remove(), 1000);
+}}
+
 function renderDetail(detailTr, res, seqId) {{
   const files = res.files || [];
   const content = res.content || '';
@@ -1001,19 +1016,51 @@ function renderDetail(detailTr, res, seqId) {{
         const wrap = document.getElementById('wrap-' + fid);
         if (!wrap) return;
         const isHwp = f.ext === 'hwp' || f.ext === 'hwpx';
-        const fetchUrl = isHwp ? convertUrl(f) : dlUrl(f);
-        fetch(fetchUrl)
-          .then(r => {{
-            if (!r.ok) return r.json().then(e => {{ throw new Error(e.error || r.status); }});
-            return r.blob();
-          }})
-          .then(blob => {{
-            const url = URL.createObjectURL(blob);
-            wrap.innerHTML = '<iframe src="' + url + '#toolbar=1" style="width:100%;height:100%;border:none;border-radius:6px;"></iframe>';
-          }})
-          .catch(err => {{
-            wrap.innerHTML = '<div style="padding:16px;color:#e53e3e;font-size:0.82rem;">미리보기 실패: ' + err + '</div>';
-          }});
+        if (isHwp) {{
+          // HWP: 다운로드 버튼만 제공
+          wrap.style.height = 'auto';
+          wrap.innerHTML = '<div style="padding:16px;color:#856404;font-size:0.85rem;">HWP 파일은 미리보기 불가 - 다운로드 후 확인하세요.<br>' +
+            '<button onclick="directDownload(\''+f.server_name.replace(/'/g,"\\'") +'\',\''+f.name.replace(/'/g,"\\'")+'\');" style="margin-top:8px;padding:6px 14px;background:#e8a317;color:#fff;border:none;border-radius:6px;cursor:pointer;">&#11015; HWP 다운로드</button></div>';
+          return;
+        }}
+        // PDF: 로컬 서버가 있으면 프록시, 없으면 iframe 직접 로드 시도
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocal) {{
+          fetch(dlUrl(f))
+            .then(r => {{ if (!r.ok) throw new Error(r.status); return r.blob(); }})
+            .then(blob => {{
+              const url = URL.createObjectURL(blob);
+              wrap.innerHTML = '<iframe src="' + url + '#toolbar=1" style="width:100%;height:100%;border:none;border-radius:6px;"></iframe>';
+            }})
+            .catch(err => {{
+              wrap.innerHTML = '<div style="padding:16px;color:#e53e3e;font-size:0.82rem;">미리보기 실패: ' + err + '</div>';
+            }});
+        }} else {{
+          // Render 환경: iframe에 form POST로 직접 로드
+          const fname = 'pf_' + fid.replace(/-/g,'_');
+          wrap.innerHTML = '<iframe name="' + fname + '" style="width:100%;height:100%;border:none;border-radius:6px;"></iframe>';
+          const form = document.createElement('form');
+          form.method='POST'; form.action='https://file.scourt.go.kr/AttachDownload';
+          form.target=fname; form.style.display='none';
+          const i1=document.createElement('input'); i1.name='file'; i1.value=f.server_name;
+          const i2=document.createElement('input'); i2.name='path'; i2.value='011';
+          const i3=document.createElement('input'); i3.name='downFile'; i3.value=f.name;
+          form.append(i1,i2,i3);
+          document.body.appendChild(form);
+          form.submit();
+          setTimeout(()=>form.remove(),1000);
+          // X-Frame-Options 차단 시 fallback 다운로드 버튼 표시
+          setTimeout(function() {{
+            try {{
+              const iw = wrap.querySelector('iframe');
+              if (iw && (!iw.contentDocument || iw.contentDocument.body.innerHTML === '')) {{
+                wrap.style.height='auto';
+                wrap.innerHTML='<div style="padding:16px;color:#555;font-size:0.85rem;">iframe 미리보기 차단됨.<br>' +
+                  '<button onclick="directDownload(\''+f.server_name.replace(/'/g,"\\'")+'\',\''+f.name.replace(/'/g,"\\'")+'\');" style="margin-top:8px;padding:6px 14px;background:#2d6a9f;color:#fff;border:none;border-radius:6px;cursor:pointer;">&#11015; PDF 다운로드</button></div>';
+              }}
+            }} catch(e) {{}}
+          }}, 3000);
+        }}
       }});
     }}, 50);
   }} else {{
@@ -1028,13 +1075,15 @@ function renderDetail(detailTr, res, seqId) {{
 function fileItem(f) {{
   const icons = {{pdf:'&#128196;', hwp:'&#128209;', hwpx:'&#128209;', doc:'&#128196;', docx:'&#128196;'}};
   const icon = icons[f.ext] || '&#128190;';
-  const src = dlUrl(f);
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const sn = f.server_name.replace(/'/g,"\\'"), dn = f.name.replace(/'/g,"\\'");
+  const dlBtn = isLocal
+    ? '<a class="btn-download" href="' + dlUrl(f) + '" download="' + escHtml(f.name) + '">&#11015; 다운로드</a>'
+    : '<button class="btn-download" onclick="directDownload(\''+sn+'\',\''+dn+'\');">&#11015; 다운로드</button>';
   return '<div class="file-item">' +
     '<span class="file-icon">' + icon + '</span>' +
     '<span class="file-name">' + escHtml(f.name) + '</span>' +
-    '<div class="file-btns">' +
-    '<a class="btn-download" href="' + src + '" download="' + escHtml(f.name) + '">&#11015; 다운로드</a>' +
-    '</div></div>';
+    '<div class="file-btns">' + dlBtn + '</div></div>';
 }}
 
 function escHtml(s) {{
