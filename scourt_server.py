@@ -1019,8 +1019,17 @@ function renderDetail(detailTr, res, seqId) {{
         if (isHwp) {{
           // HWP: 다운로드 버튼만 제공
           wrap.style.height = 'auto';
-          wrap.innerHTML = '<div style="padding:16px;color:#856404;font-size:0.85rem;">HWP 파일은 미리보기 불가 - 다운로드 후 확인하세요.<br>' +
-            '<button onclick="directDownload(\''+f.server_name.replace(/'/g,"\\'") +'\',\''+f.name.replace(/'/g,"\\'")+'\');" style="margin-top:8px;padding:6px 14px;background:#e8a317;color:#fff;border:none;border-radius:6px;cursor:pointer;">&#11015; HWP 다운로드</button></div>';
+          const hwpBtn = document.createElement('button');
+          hwpBtn.textContent = '⬇ HWP 다운로드';
+          hwpBtn.style.cssText = 'margin-top:8px;padding:6px 14px;background:#e8a317;color:#fff;border:none;border-radius:6px;cursor:pointer;';
+          hwpBtn.addEventListener('click', function(){{ directDownload(f.server_name, f.name); }});
+          const hwpDiv = document.createElement('div');
+          hwpDiv.style.cssText = 'padding:16px;color:#856404;font-size:0.85rem;';
+          hwpDiv.textContent = 'HWP 파일은 미리보기 불가 - 다운로드 후 확인하세요.';
+          hwpDiv.appendChild(document.createElement('br'));
+          hwpDiv.appendChild(hwpBtn);
+          wrap.innerHTML = '';
+          wrap.appendChild(hwpDiv);
           return;
         }}
         // PDF: 로컬 서버가 있으면 프록시, 없으면 iframe 직접 로드 시도
@@ -1055,8 +1064,17 @@ function renderDetail(detailTr, res, seqId) {{
               const iw = wrap.querySelector('iframe');
               if (iw && (!iw.contentDocument || iw.contentDocument.body.innerHTML === '')) {{
                 wrap.style.height='auto';
-                wrap.innerHTML='<div style="padding:16px;color:#555;font-size:0.85rem;">iframe 미리보기 차단됨.<br>' +
-                  '<button onclick="directDownload(\''+f.server_name.replace(/'/g,"\\'")+'\',\''+f.name.replace(/'/g,"\\'")+'\');" style="margin-top:8px;padding:6px 14px;background:#2d6a9f;color:#fff;border:none;border-radius:6px;cursor:pointer;">&#11015; PDF 다운로드</button></div>';
+                const pdfBtn = document.createElement('button');
+                pdfBtn.textContent = '⬇ PDF 다운로드';
+                pdfBtn.style.cssText = 'margin-top:8px;padding:6px 14px;background:#2d6a9f;color:#fff;border:none;border-radius:6px;cursor:pointer;';
+                pdfBtn.addEventListener('click', function(){{ directDownload(f.server_name, f.name); }});
+                const pdfDiv = document.createElement('div');
+                pdfDiv.style.cssText = 'padding:16px;color:#555;font-size:0.85rem;';
+                pdfDiv.textContent = 'iframe 미리보기 차단됨.';
+                pdfDiv.appendChild(document.createElement('br'));
+                pdfDiv.appendChild(pdfBtn);
+                wrap.innerHTML = '';
+                wrap.appendChild(pdfDiv);
               }}
             }} catch(e) {{}}
           }}, 3000);
@@ -1076,10 +1094,12 @@ function fileItem(f) {{
   const icons = {{pdf:'&#128196;', hwp:'&#128209;', hwpx:'&#128209;', doc:'&#128196;', docx:'&#128196;'}};
   const icon = icons[f.ext] || '&#128190;';
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const sn = f.server_name.replace(/'/g,"\\'"), dn = f.name.replace(/'/g,"\\'");
-  const dlBtn = isLocal
-    ? '<a class="btn-download" href="' + dlUrl(f) + '" download="' + escHtml(f.name) + '">&#11015; 다운로드</a>'
-    : '<button class="btn-download" onclick="directDownload(\''+sn+'\',\''+dn+'\');">&#11015; 다운로드</button>';
+  let dlBtn;
+  if (isLocal) {{
+    dlBtn = '<a class="btn-download" href="' + dlUrl(f) + '" download="' + escHtml(f.name) + '">&#11015; &#45796;&#50868;&#47196;&#46300;</a>';
+  }} else {{
+    dlBtn = '<button class="btn-download" data-sn="' + escHtml(f.server_name) + '" data-dn="' + escHtml(f.name) + '" onclick="directDownload(this.dataset.sn,this.dataset.dn);">&#11015; &#45796;&#50868;&#47196;&#46300;</button>';
+  }}
   return '<div class="file-item">' +
     '<span class="file-icon">' + icon + '</span>' +
     '<span class="file-name">' + escHtml(f.name) + '</span>' +
