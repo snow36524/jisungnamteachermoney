@@ -181,6 +181,22 @@ async def 크롤링():
 
             await browser.close()
 
+        # 상세페이지에서 파일 정보 수집
+        crawl_status["message"] = f"첨부파일 정보 수집 중... (0/{len(모든_공고)})"
+        for i, item in enumerate(모든_공고):
+            seq_id = item.get("seq_id")
+            if seq_id:
+                try:
+                    result = 상세페이지_파싱(seq_id)
+                    item["files"] = result.get("files", [])
+                except Exception:
+                    item["files"] = []
+            else:
+                item["files"] = []
+            if i % 20 == 0:
+                crawl_status["message"] = f"첨부파일 정보 수집 중... ({i}/{len(모든_공고)})"
+            await asyncio.sleep(0.4)
+
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         data = {"수집일시": now, "총건수": len(모든_공고), "공고목록": 모든_공고}
         Path(CONFIG["output_json"]).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -915,6 +931,14 @@ function toggleRow(tr, idx) {{
 
   if (!seqId) {{
     detailTr.querySelector('.detail-panel').innerHTML = '<div style="padding:16px;color:#aaa;">상세 링크 정보가 없습니다.</div>';
+    return;
+  }}
+
+  // 크롤링 시 저장된 파일 정보가 있으면 API 호출 없이 바로 표시
+  const pageStart = (curPage-1)*PER_PAGE;
+  const itemData = filtered[pageStart + idx];
+  if (itemData && Array.isArray(itemData.files)) {{
+    renderDetail(detailTr, {{content: '', files: itemData.files}}, seqId);
     return;
   }}
 
