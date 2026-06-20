@@ -450,6 +450,7 @@ class Handler(BaseHTTPRequestHandler):
             if not server_name:
                 self.send_json({"error": "file 파라미터 필요"}, 400)
                 return
+            logger.info(f"/download 요청: file={server_name}, name={display_name}")
             try:
                 form_data = urllib.parse.urlencode({
                     "file": server_name,
@@ -462,10 +463,16 @@ class Handler(BaseHTTPRequestHandler):
                     headers={**HEADERS, "Content-Type": "application/x-www-form-urlencoded"},
                 )
                 with urllib.request.urlopen(req, timeout=30) as resp:
+                    resp_content_type = resp.headers.get("Content-Type", "")
                     file_data = resp.read()
+                logger.info(f"/download 성공: {len(file_data)} bytes, server Content-Type={resp_content_type}")
+                # 한국 IP 차단 시 HTML 에러 페이지가 200으로 반환되는 경우 감지
+                if file_data[:100].lstrip().lower().startswith((b"<!doctype", b"<html")):
+                    logger.error(f"/download: HTML 에러 페이지 수신 (IP 차단 의심). 첫 200자: {file_data[:200]}")
+                    self.send_json({"error": "IP_BLOCKED: HTML 에러 페이지 수신"}, 502)
+                    return
                 ext = server_name.rsplit(".", 1)[-1].lower()
                 safe_name = urllib.parse.quote(display_name)
-                # 확장자 기반으로 Content-Type 강제 지정
                 mime_map = {
                     "pdf": "application/pdf",
                     "hwp": "application/x-hwp",
@@ -487,6 +494,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(file_data)
             except Exception as e:
+                logger.error(f"/download 실패: {type(e).__name__}: {e}")
                 self.send_json({"error": str(e)}, 500)
         else:
             self.send_json({"error": "not found"}, 404)
