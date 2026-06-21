@@ -1,1 +1,6 @@
-playwright==1.52.0
+flask
+gunicorn
+google-auth
+google-auth-oauthlib
+google-api-python-client
+requests

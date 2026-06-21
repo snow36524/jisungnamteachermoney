@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: calendar-dashboard
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn calendar_dashboard:app
+    envVars:
+      - key: REDIRECT_URI
+        value: https://calendar-dashboard.onrender.com/callback
+      - key: SECRET_KEY
+        generateValue: true

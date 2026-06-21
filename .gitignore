@@ -7,3 +7,5 @@ generation.db
 test_download.py
 regen.py
 generate_viewer.py
+credentials.json
+token.json
